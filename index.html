@@ -32,12 +32,18 @@
 
             <div>
                 <button onclick="login()">Login</button>
+                <button onclick="getDashboard()">Get Dashboard</button>
+                <button onclick="getSettings()">Settings</button>
+
             </div>
         </main>
 
     </div>
     <script>
-        var token = '';
+        // cache the original Login view
+        const _initialTitle = document.querySelector('h1.row').innerHTML;
+        const _initialMain = document.querySelector('main').innerHTML;
+
 
         function login() {
             const data = {
@@ -51,23 +57,92 @@
                     document.getElementById('username').value = '';
                     document.getElementById('password').value = '';
                     if (res && res.data && res.data.success) {
-                        token = res.data.token;
+                        const token = res.data.token;
+                        localStorage.setItem('jwt', token);
                         getDashboard();
                     }
                 });
         }
+
         function getDashboard() {
+            const token = localStorage.getItem('jwt');
             axios.get('/api/dashboard', {
-                headers: {
-                    'Authorization': `Bearer ${token}`
-                }
+                headers: { 'Authorization': `Bearer ${token}` }
             }).then(res => {
                 if (res && res.data && res.data.success) {
                     document.querySelector('h1.row').innerHTML = 'Dashboard';
                     document.querySelector('main').innerHTML = res.data.myContent;
                 }
-            });
+            }).catch(redirectToRootOnAuthError);   // <-- add this
         }
+
+
+        function redirectToRootOnAuthError(err) {
+            if (err && err.response && err.response.status === 401) {
+                // token invalid/expired -> clear it and reload at "/"
+                localStorage.removeItem('jwt');
+                // ensure URL is root, then hard reload
+                history.replaceState({ route: '/' }, '', '/');
+                location.reload();
+                return; // stop here
+            }
+            // otherwise, just log
+            console.error(err);
+        }
+
+
+
+
+        function getSettings() {
+            history.pushState({ route: '/settings' }, '', '/settings');
+            const token = localStorage.getItem('jwt');
+            axios.get('/api/settings', {
+                headers: { 'Authorization': `Bearer ${token}` }
+            }).then(res => {
+                if (res && res.data && res.data.success) {
+                    document.querySelector('h1.row').innerHTML = 'Settings';
+                    document.querySelector('main').innerHTML = res.data.myContent;
+                }
+            }).catch(redirectToRootOnAuthError); // if 401 this will then clear the token and the go to our root
+        }
+
+
+
+        function onLoad() {
+            const token = localStorage.getItem('jwt');
+            const path = location.pathname;
+
+            // renders the page only if the user visits it
+            if (path === '/dashboard' && token) {
+                history.replaceState({ route: '/dashboard' }, '', '/dashboard');
+                return getDashboard();
+            }
+            if (path === '/settings' && token) {
+                history.replaceState({ route: '/settings' }, '', '/settings');
+                return getSettings();
+            }
+
+
+            history.replaceState({ route: '/' }, '', '/');
+
+        }
+
+
+        window.addEventListener('popstate', () => {
+            const path = location.pathname;
+            if (path === '/dashboard') {
+                getDashboard();
+            } else if (path === '/settings') {
+                getSettings();
+            } else {
+                // root
+                document.querySelector('h1.row').innerHTML = 'Login';
+                document.querySelector('main').innerHTML = _initialMain;
+            }
+        });
+
+        onLoad();
+
 
 
     </script>

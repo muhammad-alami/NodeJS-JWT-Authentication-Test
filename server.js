@@ -11,14 +11,16 @@ const { expressjwt: exjwt } = require('express-jwt');
 const bodyParser = require('body-parser');
 const path = require('path');
 
-app.use(bodyParser.json());
-app.use(bodyParser.urlencoded({ extended: true }));
-
 app.use((req, res, next) => {
     res.setHeader('Access-Control-Allow-Origin', 'http://localhost:3000');
     res.setHeader('Access-Control-Allow-Headers', 'Content-type,Authorization');
     next();
 });
+
+app.use(bodyParser.json());
+app.use(bodyParser.urlencoded({ extended: true }));
+
+
 const PORT = 3000;
 
 const secretKey = 'My super secret key';
@@ -48,7 +50,7 @@ app.post('/api/login', (req, res) => {
             let token = jwt.sign(
                 { id: user.id, username: user.username },
                 secretKey,
-                { expiresIn: '7d' }
+                { expiresIn: '3m' }
             );
             res.json({
                 success: true,
@@ -69,9 +71,29 @@ app.post('/api/login', (req, res) => {
 app.get('/api/dashboard', jwtMW, (req, res) => {
     res.json({
         success: true,
-        myContent: 'Secret content that only logged in people can see.'
+        myContent: 'Secret content that only logged in people can see!!!'
     });
 });
+
+app.get('/api/prices', jwtMW, (req, res) => {
+    res.json({
+        success: true,
+        myContent: 'This is the price $3.99'
+    });
+});
+
+// My new route
+app.get('/api/settings', jwtMW, (req, res) => {
+    res.json({
+        success: true,
+        myContent: 'Settings page – only visible with a valid token.'
+    });
+});
+
+app.get(['/dashboard', '/settings'], (req, res) => {
+    res.sendFile(path.join(__dirname, 'index.html'));
+});
+
 
 app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'index.html'));
